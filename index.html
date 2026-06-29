@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cube Solver — 3×3 Rubik's Cube</title>
+  <meta name="description" content="Upload photos of each face of your Rubik's Cube and get a near-optimal step-by-step solution with 3D animation.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-dark shadow-sm" id="main-nav">
+    <div class="container-fluid px-4">
+      <span class="navbar-brand mb-0 h1">
+        <i class="bi bi-badge-3d me-2"></i>Cube Solver
+      </span>
+      <span class="nav-tagline d-none d-md-inline">Upload face photos · Get the shortest solution · Watch it solve in 3D</span>
+    </div>
+  </nav>
+
+  <main class="container-fluid py-4">
+    <div class="row g-4">
+      <!-- 3D Viewer -->
+      <div class="col-lg-7">
+        <div class="card shadow viewer-card h-100">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-badge-3d me-2"></i>3D Cube Viewer</h5>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-light" id="btn-reset-view" title="Reset camera">
+                <i class="bi bi-arrow-counterclockwise"></i>
+              </button>
+              <button class="btn btn-outline-light" id="btn-flip-view" title="Flip view vertically">
+                <i class="bi bi-symmetry-horizontal"></i> Flip
+              </button>
+              <button class="btn btn-outline-light" id="btn-scramble" title="Random scramble">
+                <i class="bi bi-shuffle"></i> Scramble
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-0 position-relative" id="viewer-body">
+            <div id="cube-canvas"></div>
+            <!-- Camera hint strip -->
+            <div class="viewer-hint">
+              <span><i class="bi bi-mouse2 me-1"></i>Drag to rotate</span>
+              <span class="mx-2">·</span>
+              <span><i class="bi bi-mouse me-1"></i>Scroll to zoom</span>
+            </div>
+            <div id="solver-overlay" class="solver-overlay d-none">
+              <div class="spinner-border text-light" role="status"></div>
+              <p class="text-white mt-2 mb-0" id="overlay-text">Initializing solver…</p>
+            </div>
+          </div>
+          <div class="card-footer solution-panel">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0"><i class="bi bi-list-ol me-1"></i>Solution</h6>
+              <span class="badge badge-moves" id="move-count">0 moves</span>
+            </div>
+            <div id="solution-moves" class="solution-moves mb-2">Upload images or edit colors, then click <strong>Solve Cube</strong>.</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <button class="btn btn-success btn-sm" id="btn-play" disabled>
+                <i class="bi bi-play-fill"></i> Play
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" id="btn-step" disabled>
+                <i class="bi bi-skip-forward"></i> Step
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" id="btn-stop" disabled>
+                <i class="bi bi-stop-fill"></i> Stop
+              </button>
+              <div class="ms-auto d-flex align-items-center gap-2">
+                <label class="small text-muted mb-0" for="speed-range">Speed</label>
+                <input type="range" class="form-range" id="speed-range" min="1" max="10" value="5" style="width: 90px;">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Panel -->
+      <div class="col-lg-5">
+        <div class="card shadow mb-4">
+          <div class="card-header p-0">
+            <ul class="nav nav-tabs card-header-tabs border-0 px-3 pt-2" id="input-tabs" role="tablist">
+              <li class="nav-item">
+                <button class="nav-link active" id="images-tab" data-bs-toggle="tab" data-bs-target="#images-panel" type="button" role="tab">
+                  <i class="bi bi-camera me-1"></i>Face Images
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual-panel" type="button" role="tab">
+                  <i class="bi bi-palette me-1"></i>Color Editor
+                </button>
+              </li>
+            </ul>
+          </div>
+          <div class="card-body tab-content">
+            <!-- Image upload -->
+            <div class="tab-pane fade show active" id="images-panel" role="tabpanel">
+              <p class="text-muted small mb-3">
+                Upload a clear photo of each face. Hold the cube so the <strong>center sticker</strong> matches the face label.
+                Good lighting helps color detection.
+              </p>
+              <div class="row g-2" id="face-uploads"></div>
+              <button class="btn btn-outline-primary btn-sm mt-3 w-100" id="btn-parse-images">
+                <i class="bi bi-magic me-1"></i>Detect Colors from Images
+              </button>
+            </div>
+
+            <!-- Manual editor -->
+            <div class="tab-pane fade" id="manual-panel" role="tabpanel">
+              <p class="text-muted small mb-3">
+                Click any sticker to cycle its color. Centers are fixed to each face.
+              </p>
+              <div id="cube-net" class="cube-net mx-auto"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow">
+          <div class="card-body">
+            <div class="d-grid gap-2">
+              <button class="btn btn-primary btn-lg" id="btn-solve">
+                <i class="bi bi-lightning-charge-fill me-1"></i>Solve Cube
+              </button>
+              <button class="btn btn-outline-secondary" id="btn-reset-cube">
+                <i class="bi bi-arrow-repeat me-1"></i>Reset to Solved
+              </button>
+            </div>
+            <div id="status-message" class="alert mt-3 mb-0 d-none" role="alert"></div>
+          </div>
+        </div>
+
+        <div class="card shadow mt-4">
+          <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-1"></i>How to use</h6></div>
+          <div class="card-body small text-muted">
+            <ol class="mb-0 ps-3">
+              <li class="mb-1">Take 6 photos — one per face (U, D, F, B, L, R).</li>
+              <li class="mb-1">Upload them and click <em>Detect Colors</em>, or paint colors manually in the Color Editor.</li>
+              <li class="mb-1">Click <em>Solve Cube</em> for a near-optimal solution (Kociemba algorithm).</li>
+              <li>Press <em>Play</em> to animate the solve on the 3D model.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Three.js: bundled locally (CDN r164 removed the global IIFE build) -->
+  <script src="lib/three.min.js"></script>
+  <script src="lib/cube.js"></script>
+  <script src="lib/solve.js"></script>
+  <script src="js/cubeState.js"></script>
+  <script src="js/imageParser.js"></script>
+  <script src="js/solver.js"></script>
+  <script src="js/cube3d.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
